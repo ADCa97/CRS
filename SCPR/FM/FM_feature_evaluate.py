@@ -26,7 +26,10 @@ def topk(y_true, pred, k):
     if sum(y_true_) == 0:
         return 0
     else:
-        return roc_auc_score(y_true_, pred_)
+        try:
+            return roc_auc_score(y_true_, pred_)
+        except ValueError:
+            pass
 
 
 def rank_by_batch(kg, pickle_file, iter_, bs, pickle_file_length, model, PAD_IDX1, PAD_IDX2, user_length, feature_length, data_name, ITEM, ITEM_FEATURE):
