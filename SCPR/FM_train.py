@@ -293,7 +293,7 @@ def main():
     # command = 8: with our second type of negative sample
     parser.add_argument('-seed', type=int, default=0, metavar='<seed>', dest='seed', help='seed')
     # random seed
-    parser.add_argument('-me', type=int, default=250, metavar='<max_epoch>', dest='max_epoch', help='max_epoch')
+    parser.add_argument('-me', type=int, default=125, metavar='<max_epoch>', dest='max_epoch', help='max_epoch')
     #the number of train epoch
     parser.add_argument('-pretrain', type=int, default=0, metavar='<pretrain>', dest='pretrain', help='pretrain')
     parser.add_argument('-load_fm_epoch', type=int, default=0, metavar='<load_fm_epoch>', dest='load_fm_epoch', help='the epoch of loading FM model')
@@ -369,7 +369,7 @@ def main():
         args.data_name, args.lr, args.flr, args.reg, args.bs, args.command, args.uf, args.seed)
 
 
-    model = train(dataset, kg, model, bs, max_epoch, optimizer1, optimizer2, optimizer3, reg_, args.qonly, args.observe, args.command, file_name, args.uf, args.useremb, args.load_fm_epoch)
+    train(dataset, kg, model, bs, max_epoch, optimizer1, optimizer2, optimizer3, reg_, args.qonly, args.observe, args.command, file_name, args.uf, args.useremb, args.load_fm_epoch)
     save_embedding(model, file_name, epoch=max_epoch)
 
 if __name__ == '__main__':
