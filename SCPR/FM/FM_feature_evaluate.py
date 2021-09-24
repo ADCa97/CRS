@@ -106,7 +106,7 @@ def evaluate_feature(kg, model, epoch, filename, PAD_IDX1, PAD_IDX2, user_length
     print('Starting {} epoch'.format(epoch))
     bs = 64
     max_iter = int(pickle_file_length / float(bs))
-    max_iter = 100
+    # max_iter = 100
 
     result = list()
     print('max_iter-----------', max_iter)
