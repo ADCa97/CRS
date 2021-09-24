@@ -108,7 +108,7 @@ def evaluate_item(kg, model, epoch, filename, rd, PAD_IDX1, PAD_IDX2, user_lengt
     bs = 64
     max_iter = int(pickle_file_length / float(bs))
     # Only do 20 iteration for the sake of time
-    max_iter = 20
+    # max_iter = 20
 
     result = list()
     for iter_ in range(max_iter):
