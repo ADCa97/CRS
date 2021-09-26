@@ -24,7 +24,9 @@ def translate_pickle_to_data(dataset, kg, pickle_file, iter_, bs, pickle_file_le
     # user_pickle, item_p_pickle, i_neg1_pickle, i_neg2_pickle, preference_pickle = zip(*pickle_file[left:right])
 
     pos_list, pos_list2, neg_list, neg_list2, new_neg_list, new_neg_list2, preference_list_1, preference_list_2 = [], [], [], [], [], [], [], []
-
+    # GZC start
+    friend_list, friend_list_2 = [], []
+    # GZC end
     I = pickle_file[0][left:right]
     II = pickle_file[1][left:right]
     III = pickle_file[2][left:right]
@@ -34,42 +36,49 @@ def translate_pickle_to_data(dataset, kg, pickle_file, iter_, bs, pickle_file_le
     residual_feature, neg_feature = None, None
 
     if uf == 1:
-        feature_range = np.arange(feature_length).tolist()
+        feature_range = np.arange(feature_length).tolist() # 所有属性[0, 32]
         residual_feature, neg_feature = [], []
         for user_pickle, item_p_pickle, i_neg1_pickle, i_neg2_pickle, preference_pickle in zip(I, II, III, IV, V):
-            gt_feature = kg.G[ITEM][item_p_pickle][ITEM_FEATURE]
-            this_residual_feature = list(set(gt_feature) - set(preference_pickle))
-            remain_feature = list(set(feature_range) - set(gt_feature))
-            this_neg_feature = np.random.choice(remain_feature, len(this_residual_feature))
-            residual_feature.append(torch.LongTensor(this_residual_feature))
-            neg_feature.append(torch.LongTensor(this_neg_feature))
+            gt_feature = kg.G[ITEM][item_p_pickle][ITEM_FEATURE] # 与用户交互的项目所具有的属性
+            this_residual_feature = list(set(gt_feature) - set(preference_pickle)) # 与用户交互的项目所具有的属性去除当前用户的偏好属性，也即候选属性
+            remain_feature = list(set(feature_range) - set(gt_feature)) # 所有属性中去除与用户交互的项目所具有的属性
+            this_neg_feature = np.random.choice(remain_feature, len(this_residual_feature)) # 用户不喜欢的属性，随机选择候选属性长度个
+            residual_feature.append(torch.LongTensor(this_residual_feature))  # 候选属性
+            neg_feature.append(torch.LongTensor(this_neg_feature)) # 负例属性
         residual_feature = pad_sequence(residual_feature, batch_first=True, padding_value=PAD_IDX2)
         neg_feature = pad_sequence(neg_feature, batch_first=True, padding_value=PAD_IDX2)
 
     i = 0
     index_none = list()
     for user_pickle, item_p_pickle, i_neg1_pickle, i_neg2_pickle, preference_pickle in zip(I, II, III, IV, V):
-        pos_list.append(torch.LongTensor([user_pickle, item_p_pickle + user_length]))
-        f = kg.G[ITEM][item_p_pickle][ITEM_FEATURE]
+        pos_list.append(torch.LongTensor([user_pickle, item_p_pickle + user_length])) # [user id, pos item id]
+        f = kg.G[ITEM][item_p_pickle][ITEM_FEATURE] # pos item所具有的属性
         pos_list2.append(torch.LongTensor(f))
-        neg_list.append(torch.LongTensor([user_pickle, i_neg1_pickle + user_length]))
-        f = kg.G[ITEM][i_neg1_pickle][ITEM_FEATURE]
+        neg_list.append(torch.LongTensor([user_pickle, i_neg1_pickle + user_length])) # [user id, neg item id]
+        f = kg.G[ITEM][i_neg1_pickle][ITEM_FEATURE] # neg item所具有的属性
         neg_list2.append(torch.LongTensor(f))
-
-        preference_list_1.append(torch.LongTensor(preference_pickle))
-        if i_neg2_pickle is None:
+        # GZC start
+        friendShip = kg.G["user"][user_pickle]["friends"]
+        friend_list.append(torch.LongTensor(friendShip))
+        # GZC end
+        preference_list_1.append(torch.LongTensor(preference_pickle)) # 用户偏好的属性
+        if i_neg2_pickle is None: # 候选项目集中的负例
             index_none.append(i)
         i += 1
 
     i = 0
     for user_pickle, item_p_pickle, i_neg1_pickle, i_neg2_pickle, preference_pickle in zip(I, II, III, IV, V):
-        if i in index_none:
+        if i in index_none: # index_none的作用就是判断候选项目集是否为空
             i += 1
             continue
         new_neg_list.append(torch.LongTensor([user_pickle, i_neg2_pickle + user_length]))
-        f = kg.G[ITEM][i_neg2_pickle][ITEM_FEATURE]
+        f = kg.G[ITEM][i_neg2_pickle][ITEM_FEATURE] # neg candidate item所具有的属性
         new_neg_list2.append(torch.LongTensor(f))
-        preference_list_2.append(torch.LongTensor(preference_pickle))
+        preference_list_2.append(torch.LongTensor(preference_pickle)) # 用户偏好的属性
+        # GZC start
+        friendShip = kg.G["user"][user_pickle]["friends"]
+        friend_list_2.append(torch.LongTensor(friendShip))
+        # GZC end
         i += 1
 
 
@@ -81,13 +90,16 @@ def translate_pickle_to_data(dataset, kg, pickle_file, iter_, bs, pickle_file_le
     new_neg_list2 = pad_sequence(new_neg_list2, batch_first=True, padding_value=PAD_IDX2)
     preference_list_1 = pad_sequence(preference_list_1, batch_first=True, padding_value=PAD_IDX2)
     preference_list_2 = pad_sequence(preference_list_2, batch_first=True, padding_value=PAD_IDX2)
-
+    # GZC start
+    friend_list = pad_sequence(friend_list, batch_first=True, padding_value=PAD_IDX1)
+    friend_list_2 = pad_sequence(friend_list_2, batch_first=True, padding_value=PAD_IDX1)
+    # GZC end
     if uf != 0:
         return cuda_(pos_list), cuda_(pos_list2), cuda_(neg_list), cuda_(neg_list2), cuda_(new_neg_list), cuda_(
-            new_neg_list2), cuda_(preference_list_1), cuda_(preference_list_2), index_none, cuda_(residual_feature), cuda_(neg_feature)
+            new_neg_list2), cuda_(preference_list_1), cuda_(preference_list_2), index_none, cuda_(residual_feature), cuda_(neg_feature), cuda_(friend_list), cuda_(friend_list_2)
     else:
         return cuda_(pos_list), cuda_(pos_list2), cuda_(neg_list), cuda_(neg_list2), cuda_(new_neg_list), cuda_(
-            new_neg_list2), cuda_(preference_list_1), cuda_(preference_list_2), index_none, residual_feature, neg_feature
+            new_neg_list2), cuda_(preference_list_1), cuda_(preference_list_2), index_none, residual_feature, neg_feature, cuda_(friend_list), cuda_(friend_list_2)
 
 def train(dataset, kg, model, bs, max_epoch, optimizer1, optimizer2, optimizer3, reg, qonly, observe, command, filename, uf, useremb, load_fm_epoch):
     model.train()
@@ -129,23 +141,23 @@ def train(dataset, kg, model, bs, max_epoch, optimizer1, optimizer2, optimizer3,
                                                                             float(iter_) * 100 / max_iter))
                 print('loss is: {}'.format(float(epoch_loss) / (bs * iter_)))
                 print('iter_:{} Bias grad norm: {}, Static grad norm: {}, Preference grad norm: {}'.format(iter_, torch.norm(model.Bias.grad), torch.norm(model.ui_emb.weight.grad), torch.norm(model.feature_emb.weight.grad)))
-
-            pos_list, pos_list2, neg_list, neg_list2, new_neg_list, new_neg_list2, preference_list_1, preference_list_new, index_none, residual_feature, neg_feature \
+            # GZC start
+            pos_list, pos_list2, neg_list, neg_list2, new_neg_list, new_neg_list2, preference_list_1, preference_list_new, index_none, residual_feature, neg_feature, friend_list, friend_list_2 \
                 = translate_pickle_to_data(dataset, kg, new_pk_file, iter_, bs, pickle_file_length, uf)
-
+            # GZC end
             optimizer1.zero_grad()
             optimizer2.zero_grad()
             result_pos, feature_bias_matrix_pos, nonzero_matrix_pos = model(pos_list, pos_list2,
-                                                                            preference_list_1)  # (bs, 1), (bs, 2, 1), (bs, 2, emb_size)
+                                                                            preference_list_1, friend_list)  # (bs, 1), (bs, 2, 1), (bs, 2, emb_size)
 
-            result_neg, feature_bias_matrix_neg, nonzero_matrix_neg = model(neg_list, neg_list2, preference_list_1)
+            result_neg, feature_bias_matrix_neg, nonzero_matrix_neg = model(neg_list, neg_list2, preference_list_1, friend_list)
             diff = (result_pos - result_neg)
             loss = - lsigmoid(diff).sum(dim=0)  # The Minus is crucial is
 
             if command in [8]:
                 # The second type of negative sample
                 new_result_neg, new_feature_bias_matrix_neg, new_nonzero_matrix_neg = model(new_neg_list, new_neg_list2,
-                                                                                            preference_list_new)
+                                                                                            preference_list_new, friend_list_2)
                 # Reason for this is that, sometimes the sample is missing, so we have to also omit that in result_pos
                 T = cuda_(torch.tensor([]))
                 for i in range(bs):
@@ -186,22 +198,22 @@ def train(dataset, kg, model, bs, max_epoch, optimizer1, optimizer2, optimizer3,
             if uf == 1:
                 # updating feature embedding
                 # we try to optimize
-                A = model.feature_emb(preference_list_1)[..., :-1]
-                user_emb = model.ui_emb(pos_list[:, 0])[..., :-1].unsqueeze(dim=1).detach()
-                if useremb == 1:
-                    A = torch.cat([A, user_emb], dim=1)
+                A = model.feature_emb(preference_list_1)[..., :-1] # 用户偏好的属性嵌入[64,10]
+                user_emb = model.ui_emb(pos_list[:, 0])[..., :-1].unsqueeze(dim=1).detach() # 用户嵌入[64,1,64]
+                if useremb == 1: # update user embedding during feature similarity
+                    A = torch.cat([A, user_emb], dim=1) # [64,11,64]
 
-                B = model.feature_emb(residual_feature)[..., :-1]
-                C = model.feature_emb(neg_feature)[..., :-1]
+                B = model.feature_emb(residual_feature)[..., :-1] # 候选属性嵌入[64,21,64]
+                C = model.feature_emb(neg_feature)[..., :-1] # 负例属性嵌入[64,21,64]
 
-                D = torch.matmul(A, B.transpose(2, 1))
-                E = torch.matmul(A, C.transpose(2, 1))
+                D = torch.matmul(A, B.transpose(2, 1)) # [64,11,21]
+                E = torch.matmul(A, C.transpose(2, 1)) # [64,11,21]
 
-                p_vs_residual = D.view(D.shape[0], -1, 1)
-                p_vs_neg = E.view(E.shape[0], -1, 1)
+                p_vs_residual = D.view(D.shape[0], -1, 1) # [64, 231, 1]
+                p_vs_neg = E.view(E.shape[0], -1, 1) # [64, 231, 1]
 
-                p_vs_residual = p_vs_residual.sum(dim=1)
-                p_vs_neg = p_vs_neg.sum(dim=1)
+                p_vs_residual = p_vs_residual.sum(dim=1) # [64,1]
+                p_vs_neg = p_vs_neg.sum(dim=1) # [64,1]
                 diff = (p_vs_residual - p_vs_neg)
                 temp = - lsigmoid(diff).sum(dim=0)
                 loss = temp

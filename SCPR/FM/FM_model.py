@@ -40,14 +40,15 @@ class FactorizationMachine(nn.Module):
 
         # _______ set the padding to zero _______
         self.feature_emb.weight.data[self.feature_length,:] = 0
-
-    def forward(self, ui_pair, feature_index, preference_index):
+    # GZC start
+    def forward(self, ui_pair, feature_index, preference_index, friends_index):
         '''
         param: a list of user ID and busi ID
         '''
-        return self.compute(ui_pair, feature_index, preference_index)
+        return self.compute(ui_pair, feature_index, preference_index, friends_index)
+    # GZC end
 
-    def compute(self, ui_pair, feature_index, preference_index):
+    def compute(self, ui_pair, feature_index, preference_index, friends_index):
         feature_matrix_ui = self.ui_emb(ui_pair)
         nonzero_matrix_ui = feature_matrix_ui[..., :-1]
         feature_bias_matrix_ui = feature_matrix_ui[..., -1:]
@@ -65,6 +66,18 @@ class FactorizationMachine(nn.Module):
         nonzero_matrix_clone = nonzero_matrix.clone()
         feature_bias_matrix_clone = feature_bias_matrix.clone()
 
+        # GZC start
+        feature_matrix_friends = self.ui_emb(friends_index)
+        nonzero_matrix_friends = feature_matrix_friends[..., :-1]
+        friends_embedding = nonzero_matrix_friends
+
+        user_embedding = nonzero_matrix_ui[:,0,:].reshape(-1,1,self.emb_size)
+        item_embedding = nonzero_matrix_ui[:,1,:].reshape(-1,1,self.emb_size)
+        preference_embedding = nonzero_matrix_preference
+
+        FM = user_embedding * item_embedding + (item_embedding * friends_embedding).mean(dim = 1, keepdim=True) + (item_embedding * preference_embedding).sum(dim = 1, keepdim=True) # (bs, 1, emb_size)
+        # GZC end
+        """
         # _________ sum_square part _____________
         summed_features_embedding_squared = nonzero_matrix.sum(dim=1, keepdim=True) ** 2  # (bs, 1, emb_size)
 
@@ -82,7 +95,7 @@ class FactorizationMachine(nn.Module):
         squared_sum_features_embedding_new_2 = (new_non_zero_2 * new_non_zero_2).sum(dim=1, keepdim=True)
         newFM_2 = 0.5 * (summed_features_embedding_squared_new_2 - squared_sum_features_embedding_new_2)
         FM = (FM - newFM_2)
-
+        """
         # ***---***
 
         FM = self.dropout2(FM)  # (bs, 1, emb_size)
