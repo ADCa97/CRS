@@ -31,6 +31,9 @@ class FactorizationMachine(nn.Module):
         # _______ Scala Bias _______
         self.Bias = nn.Parameter(torch.randn(1).normal_(0, 0.01), requires_grad=True)
 
+        self.multihead_atten = nn.MultiheadAttention(self.emb_size, 4, 0.5, batch_first=True)
+        self.multihead_atten.to("cuda:0")
+
         self.init_weight()
 
 
@@ -69,13 +72,15 @@ class FactorizationMachine(nn.Module):
         # GZC start
         feature_matrix_friends = self.ui_emb(friends_index)
         nonzero_matrix_friends = feature_matrix_friends[..., :-1]
-        friends_embedding = nonzero_matrix_friends
+        friends_embedding = nonzero_matrix_friends[:,:20,:]
 
         user_embedding = nonzero_matrix_ui[:,0,:].reshape(-1,1,self.emb_size)
         item_embedding = nonzero_matrix_ui[:,1,:].reshape(-1,1,self.emb_size)
         preference_embedding = nonzero_matrix_preference
 
-        FM = user_embedding * item_embedding + (item_embedding * friends_embedding).mean(dim = 1, keepdim=True) + (item_embedding * preference_embedding).sum(dim = 1, keepdim=True) # (bs, 1, emb_size)
+        atten_output, _ = self.multihead_atten(user_embedding.expand(-1, friends_embedding.shape[1], -1), friends_embedding, friends_embedding)
+
+        FM = user_embedding * item_embedding + (item_embedding * atten_output).mean(dim = 1, keepdim=True) + (item_embedding * preference_embedding).sum(dim = 1, keepdim=True) # (bs, 1, emb_size)
         # GZC end
         """
         # _________ sum_square part _____________
