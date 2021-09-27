@@ -69,7 +69,7 @@ class FactorizationMachine(nn.Module):
         # GZC start
         feature_matrix_friends = self.ui_emb(friends_index)
         nonzero_matrix_friends = feature_matrix_friends[..., :-1]
-        friends_embedding = nonzero_matrix_friends
+        friends_embedding = nonzero_matrix_friends[:,:20,:]
 
         user_embedding = nonzero_matrix_ui[:,0,:].reshape(-1,1,self.emb_size)
         item_embedding = nonzero_matrix_ui[:,1,:].reshape(-1,1,self.emb_size)
