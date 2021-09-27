@@ -131,4 +131,5 @@ dmypy.json
 *.zip
 data/
 tmp/
+.vscode/
 
