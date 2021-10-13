@@ -45,17 +45,25 @@ def rank_by_batch(kg, pickle_file, iter_, bs, pickle_file_length, model, rd, PAD
         user_input = [user_output] * len(total_list)
 
         pos_list, pos_list2 = list(), list()
+        # GZC
+        friend_list = list()
         cumu_length = 0
         for instance in zip(user_input, total_list):
             new_list = list()
-            new_list.append(instance[0])
-            new_list.append(instance[1] + user_length)
-            pos_list.append(torch.LongTensor(new_list))
-            f = kg.G[ITEM][instance[1]][ITEM_FEATURE]
+            new_list.append(instance[0]) # user id
+            new_list.append(instance[1] + user_length) # new item id
+            pos_list.append(torch.LongTensor(new_list)) # [user id, item id]
+            f = kg.G[ITEM][instance[1]][ITEM_FEATURE] # 项目所具有的属性
             if rd == 1:
                 f = list(set(f) - set(preference_list))
             cumu_length += len(f)
             pos_list2.append(torch.LongTensor(f))
+            # GZC start
+            friendShip = list(kg.G["user"][instance[0]]["friends"])
+            if len(friendShip) == 0:
+                friendShip.append(PAD_IDX1)
+            friend_list.append(torch.LongTensor(friendShip))
+            # GZC end
 
         if cumu_length == 0:
             pass
@@ -63,15 +71,18 @@ def rank_by_batch(kg, pickle_file, iter_, bs, pickle_file_length, model, rd, PAD
 
         pos_list = pad_sequence(pos_list, batch_first=True, padding_value=PAD_IDX1)
         prefer_list = torch.LongTensor(preference_list).expand(len(total_list), len(preference_list))
-
+        # GZC start
+        friend_list = pad_sequence(friend_list, batch_first=True, padding_value=PAD_IDX1)
+        # GZC end
         if cumu_length != 0:
             pos_list2.sort(key=lambda x: -1 * x.shape[0])
             pos_list2 = pad_sequence(pos_list2, batch_first=True, padding_value=PAD_IDX2)
         else:
             pos_list2 = torch.LongTensor([PAD_IDX2]).expand(pos_list.shape[0], 1)
 
-
-        predictions, _, _ = model(cuda_(pos_list), cuda_(pos_list2), cuda_(prefer_list))
+        # GZC start
+        predictions, _, _ = model(cuda_(pos_list), cuda_(pos_list2), cuda_(prefer_list), cuda_(friend_list)) # 计算项目评分（概率）
+        # GZC end
         predictions = predictions.detach().cpu().numpy()
 
         mini_gtitems = [item_p_output]
@@ -108,7 +119,7 @@ def evaluate_item(kg, model, epoch, filename, rd, PAD_IDX1, PAD_IDX2, user_lengt
     bs = 64
     max_iter = int(pickle_file_length / float(bs))
     # Only do 20 iteration for the sake of time
-    max_iter = 20
+    # max_iter = 20
 
     result = list()
     for iter_ in range(max_iter):

@@ -13,9 +13,9 @@ def predict_feature(model,user_output, given_preference, to_test):
 
     for test_feature in to_test:
         temp = 0
-        temp += np.inner(user_emb, emb_weight[test_feature])
+        temp += np.inner(user_emb, emb_weight[test_feature]) # u^T * p
         for i in range(gp.shape[0]):
-            temp += np.inner(gp[i], emb_weight[test_feature])
+            temp += np.inner(gp[i], emb_weight[test_feature]) # sigma p^T * pi
         result.append(temp)
 
     return result
@@ -26,10 +26,12 @@ def topk(y_true, pred, k):
     if sum(y_true_) == 0:
         return 0
     else:
+        # GZC start
         try:
             return roc_auc_score(y_true_, pred_)
         except ValueError:
             pass
+        # GZC end
 
 
 def rank_by_batch(kg, pickle_file, iter_, bs, pickle_file_length, model, PAD_IDX1, PAD_IDX2, user_length, feature_length, data_name, ITEM, ITEM_FEATURE):
@@ -57,10 +59,10 @@ def rank_by_batch(kg, pickle_file, iter_, bs, pickle_file_length, model, PAD_IDX
         if i in index_none:
             i += 1
             continue
-        full_feature = kg.G[ITEM][item_p_output][ITEM_FEATURE]
-        preference_feature = preference_list
-        residual_preference = list(set(full_feature) - set(preference_feature))
-        residual_feature_all = list(set(list(range(feature_length - 1))) - set(full_feature))
+        full_feature = kg.G[ITEM][item_p_output][ITEM_FEATURE] # item所具有的属性
+        preference_feature = preference_list # 用户的偏好属性，（不知道从哪生成的）
+        residual_preference = list(set(full_feature) - set(preference_feature)) # item所具有的属性减去用户的偏好属性
+        residual_feature_all = list(set(list(range(feature_length - 1))) - set(full_feature)) # 所有属性减去item所具有的属性，（为什么是feature_length - 1，不应该是feature_length吗）
 
         if len(residual_preference) == 0:
             continue
@@ -73,12 +75,12 @@ def rank_by_batch(kg, pickle_file, iter_, bs, pickle_file_length, model, PAD_IDX
         predictions = predictions.reshape((len(to_test), 1)[0])
         y_true = [0] * len(predictions)
         for i in range(len(residual_preference)):
-            y_true[-(i + 1)] = 1
+            y_true[-(i + 1)] = 1 # to_test中最后len(residual_preference)个正好是真实标签
         tmp = list(zip(y_true, predictions))
         tmp = sorted(tmp, key=lambda x: x[1], reverse=True)
         y_true, predictions = zip(*tmp)
 
-        icon = []
+        icon = [] # icon是什么作用，未曾使用到
 
         for index, item in enumerate(y_true):
             if item > 0:
@@ -106,7 +108,7 @@ def evaluate_feature(kg, model, epoch, filename, PAD_IDX1, PAD_IDX2, user_length
     print('Starting {} epoch'.format(epoch))
     bs = 64
     max_iter = int(pickle_file_length / float(bs))
-    max_iter = 100
+    # max_iter = 100
 
     result = list()
     print('max_iter-----------', max_iter)
