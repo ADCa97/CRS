@@ -282,7 +282,7 @@ def main():
     # means quadratic form only (letting go other terms in FM equation...)
     parser.add_argument('-bs', type=int, default=64, metavar='<bs>', dest='bs', help='bs')
     #batch size
-    parser.add_argument('-hs', type=int, default=64, metavar='<hs>', dest='hs', help='hs')
+    parser.add_argument('-hs', type=int, default=300, metavar='<hs>', dest='hs', help='hs')
     # hidden size & embedding size
     parser.add_argument('-ip', type=float, default=0.01, metavar='<ip>', dest='ip', help='ip')
     # init parameter for hidden
